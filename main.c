@@ -58,12 +58,14 @@ uint16_t counter = 0;
 
 uint8_t toggle = 0;
 
+void potentioMeterTask(void* params);
+
 xSemaphoreHandle interruptSignal;
 
 void EXTI15_10_IRQHandler(void){
 portBASE_TYPE higherPrio;
 printf("Interrupt!\n");
-toggle = !toggle;
+xSemaphoreGiveFromISR(interruptSignal, &higherPrio);
 EXTI_ClearITPendingBit(KEY_BUTTON_EXTI_LINE);
 portEND_SWITCHING_ISR(higherPrio);
 }
@@ -112,27 +114,72 @@ static void ledTask(void *params) {
 	}
 }
 
+uint16_t max = 0, min = 0, mean = 0;
+
 /**
  * Scheduled interrupt handler
  */
 void scheduledInterruptTask (void* params) {
+	printf("Init function started\n");
   for (;;) {
     xSemaphoreTake(interruptSignal, portMAX_DELAY);
 
-		if (!toggle) {
-			STM_EVAL_LEDOff(LED1);
-			STM_EVAL_LEDOff(LED4);
+		if (!(toggle % 2)) {
+			ADC_SoftwareStartConv(ADC3);
+			while (!ADC_GetFlagStatus(ADC3, ADC_FLAG_EOC)){}
+			max = ADC_GetConversionValue(ADC3);
+			printf("Set max as: %d\n", max);
 		} else {
-			STM_EVAL_LEDOff(LED2);
-			STM_EVAL_LEDOff(LED3);
+			ADC_SoftwareStartConv(ADC3);
+			while (!ADC_GetFlagStatus(ADC3, ADC_FLAG_EOC)){}
+			min = ADC_GetConversionValue(ADC3);
+			printf("Set min as: %d\n", min);
+
 		}
-	printf("External interrupt (PA0, PB0, etc.)!\n");
+		
+		toggle++;
+		mean = (max + min)/2;
+		
+		if (toggle == 2) {
+				xTaskCreate(potentioMeterTask, "Pottask", 100, NULL, 1, NULL);
+		}
+		
+	 printf("External interrupt (PA0, PB0, etc.)!\n");
+  }
+}
+
+uint16_t potValue;
+void potentioMeterTask(void* params) {
+  for (;;) {
+				ADC_SoftwareStartConv(ADC3);
+			while (!ADC_GetFlagStatus(ADC3, ADC_FLAG_EOC)){}
+			potValue = ADC_GetConversionValue(ADC3);
+			printf("Potvalue: %d\n", potValue);
+
+			if (potValue > mean) {
+				STM_EVAL_LEDOn(LED1);
+				STM_EVAL_LEDOn(LED2);
+				STM_EVAL_LEDOn(LED3);
+				STM_EVAL_LEDOn(LED4);
+			} else {
+				STM_EVAL_LEDOff(LED1);
+				STM_EVAL_LEDOff(LED2);
+				STM_EVAL_LEDOff(LED3);
+				STM_EVAL_LEDOff(LED4);
+			}
+					
+			vTaskDelay(100/portTICK_RATE_MS);
   }
 }
 
 GPIO_InitTypeDef GPIO_InitStructure;
 EXTI_InitTypeDef EXTI_InitStructure;
 NVIC_InitTypeDef NVIC_InitStructure1;
+
+GPIO_InitTypeDef GPIO_InitStructure;
+ADC_InitTypeDef ADC_InitStructure;
+
+
 
 /*-----------------------------------------------------------*/
 int main (void){
@@ -145,9 +192,8 @@ int main (void){
   // empty the semaphore (initially, no interrupt has occurred)
   xSemaphoreTake(interruptSignal, portMAX_DELAY);
 	
-	xTaskCreate(ledTask, "ledtask", 100, NULL, 1, NULL);
+//	xTaskCreate(ledTask, "ledtask", 100, NULL, 1, NULL);
 	xTaskCreate(scheduledInterruptTask, "scheduled interrupt task", 100, NULL, 1, NULL);
-	
 	/* Enable the BUTTON Clock */
 	RCC_AHB1PeriphClockCmd(KEY_BUTTON_GPIO_CLK, ENABLE);
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
@@ -178,6 +224,26 @@ int main (void){
 	NVIC_InitStructure1.NVIC_IRQChannelSubPriority = 0x0F;
 	NVIC_InitStructure1.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure1);
+	
+	
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC3, ENABLE);
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOF, ENABLE);
+	
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN ;
+  GPIO_Init(GPIOF, &GPIO_InitStructure );
+	
+	
+	ADC_StructInit(&ADC_InitStructure);
+	ADC_Init(ADC3, &ADC_InitStructure);
+	ADC_RegularChannelConfig(ADC3, ADC_Channel_7, 1,
+		ADC_SampleTime_480Cycles);
+		
+	ADC_Cmd(ADC3, ENABLE);
+	
+
+			
 
 	printf("\n 1DT106\n\n   Programming Embedded Systems\n"); 
 	/* this is redirected to the display in LCD.c */

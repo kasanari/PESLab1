@@ -15,6 +15,7 @@
 ".\stm322xg_eval\stm32f2xx_tim.o"
 ".\stm322xg_eval\stm32f2xx_usart.o"
 ".\stm322xg_eval\stm32f2xx_exti.o"
+".\stm322xg_eval\stm32f2xx_adc.o"
 ".\stm322xg_eval\heap_1.o"
 ".\stm322xg_eval\list.o"
 ".\stm322xg_eval\port.o"
