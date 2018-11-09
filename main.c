@@ -56,6 +56,19 @@ uint16_t period4 = 500;
 
 uint16_t counter = 0;
 
+uint8_t toggle = 0;
+
+xSemaphoreHandle interruptSignal;
+
+void EXTI15_10_IRQHandler(void){
+portBASE_TYPE higherPrio;
+printf("Interrupt!\n");
+toggle = !toggle;
+EXTI_ClearITPendingBit(KEY_BUTTON_EXTI_LINE);
+portEND_SWITCHING_ISR(higherPrio);
+}
+
+
 static void ledTask(void *params) {
 	/* 
 		stm322xg_eval.h and stm322xg_eval.c provide wrappers
@@ -82,19 +95,14 @@ static void ledTask(void *params) {
 		 (remember that absolute delay will cause drift)
 		*/
 		
-		if (!(counter % 1)) {
-			STM_EVAL_LEDToggle(LED1);
+		if (toggle) {
+				STM_EVAL_LEDToggle(LED1);
+				STM_EVAL_LEDToggle(LED4);
+		} else {
+				STM_EVAL_LEDToggle(LED2);
+				STM_EVAL_LEDToggle(LED3);
 		}
-		if (!(counter % 2)) {
-			STM_EVAL_LEDToggle(LED2);
-		}
-		if (!(counter % 4)) {
-			STM_EVAL_LEDToggle(LED3);
-		}
-		if (!(counter % 5)) {
-			STM_EVAL_LEDToggle(LED4);
-		}
-		
+	
 		vTaskDelay(100/portTICK_RATE_MS);
 		counter++;
 		if (counter == 20) {
@@ -104,6 +112,28 @@ static void ledTask(void *params) {
 	}
 }
 
+/**
+ * Scheduled interrupt handler
+ */
+void scheduledInterruptTask (void* params) {
+  for (;;) {
+    xSemaphoreTake(interruptSignal, portMAX_DELAY);
+
+		if (!toggle) {
+			STM_EVAL_LEDOff(LED1);
+			STM_EVAL_LEDOff(LED4);
+		} else {
+			STM_EVAL_LEDOff(LED2);
+			STM_EVAL_LEDOff(LED3);
+		}
+	printf("External interrupt (PA0, PB0, etc.)!\n");
+  }
+}
+
+GPIO_InitTypeDef GPIO_InitStructure;
+EXTI_InitTypeDef EXTI_InitStructure;
+NVIC_InitTypeDef NVIC_InitStructure1;
+
 /*-----------------------------------------------------------*/
 int main (void){
 	setupHW();
@@ -111,7 +141,43 @@ int main (void){
 	/* TODO: initialize your task(s) here */
 	/* e.g. xTaskCreate(ledTask, ... ); */
 	
+	vSemaphoreCreateBinary(interruptSignal);
+  // empty the semaphore (initially, no interrupt has occurred)
+  xSemaphoreTake(interruptSignal, portMAX_DELAY);
+	
 	xTaskCreate(ledTask, "ledtask", 100, NULL, 1, NULL);
+	xTaskCreate(scheduledInterruptTask, "scheduled interrupt task", 100, NULL, 1, NULL);
+	
+	/* Enable the BUTTON Clock */
+	RCC_AHB1PeriphClockCmd(KEY_BUTTON_GPIO_CLK, ENABLE);
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+	
+	/* Configure Button pin as input */
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+	GPIO_InitStructure.GPIO_Pin = KEY_BUTTON_PIN;
+	GPIO_Init(KEY_BUTTON_GPIO_PORT, &GPIO_InitStructure);
+	
+	/* Connect Button EXTI Line to Button GPIO Pin */
+	SYSCFG_EXTILineConfig(KEY_BUTTON_EXTI_PORT_SOURCE,
+	KEY_BUTTON_EXTI_PIN_SOURCE);
+	
+	/* Configure Button EXTI line */
+	EXTI_InitStructure.EXTI_Line = KEY_BUTTON_EXTI_LINE;
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+	
+	//detect rising edge (release)
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	EXTI_Init(&EXTI_InitStructure);
+	
+	/* Enable and set Button EXTI Interrupt
+	to the lowest priority */
+	NVIC_InitStructure1.NVIC_IRQChannel = KEY_BUTTON_EXTI_IRQn;
+	NVIC_InitStructure1.NVIC_IRQChannelPreemptionPriority = 0x0F;
+	NVIC_InitStructure1.NVIC_IRQChannelSubPriority = 0x0F;
+	NVIC_InitStructure1.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure1);
 
 	printf("\n 1DT106\n\n   Programming Embedded Systems\n"); 
 	/* this is redirected to the display in LCD.c */
