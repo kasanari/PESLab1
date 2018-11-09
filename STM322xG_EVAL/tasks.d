@@ -1,0 +1,16 @@
+.\stm322xg_eval\tasks.o: ..\..\FreeRTOS\tasks.c
+.\stm322xg_eval\tasks.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
+.\stm322xg_eval\tasks.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
+.\stm322xg_eval\tasks.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\string.h
+.\stm322xg_eval\tasks.o: ..\..\FreeRTOS\FreeRTOS.h
+.\stm322xg_eval\tasks.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
+.\stm322xg_eval\tasks.o: ..\..\FreeRTOS\projdefs.h
+.\stm322xg_eval\tasks.o: ..\..\FreeRTOS\FreeRTOSConfig.h
+.\stm322xg_eval\tasks.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+.\stm322xg_eval\tasks.o: ..\..\FreeRTOS\portable.h
+.\stm322xg_eval\tasks.o: ..\..\FreeRTOS\portmacro.h
+.\stm322xg_eval\tasks.o: ..\..\FreeRTOS\mpu_wrappers.h
+.\stm322xg_eval\tasks.o: ..\..\FreeRTOS\task.h
+.\stm322xg_eval\tasks.o: ..\..\FreeRTOS\list.h
+.\stm322xg_eval\tasks.o: ..\..\FreeRTOS\timers.h
+.\stm322xg_eval\tasks.o: ..\..\FreeRTOS\StackMacros.h
