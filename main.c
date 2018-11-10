@@ -63,7 +63,7 @@ xSemaphoreHandle interruptSignal;
 void EXTI15_10_IRQHandler(void){
 portBASE_TYPE higherPrio;
 printf("Interrupt!\n");
-toggle = !toggle;
+xSemaphoreGiveFromISR(interruptSignal, &higherPrio);
 EXTI_ClearITPendingBit(KEY_BUTTON_EXTI_LINE);
 portEND_SWITCHING_ISR(higherPrio);
 }
@@ -126,6 +126,7 @@ void scheduledInterruptTask (void* params) {
 			STM_EVAL_LEDOff(LED2);
 			STM_EVAL_LEDOff(LED3);
 		}
+	toggle = !toggle;
 	printf("External interrupt (PA0, PB0, etc.)!\n");
   }
 }
